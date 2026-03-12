@@ -4,8 +4,8 @@ set -e
 # Local IPA build script for EeveeSpotify
 # This script matches the GitHub Actions workflow but runs locally
 
-SPOTIFY_IPA="${1:-Decrryted IPA/com.spotify.client_9.1.24_und3fined.ipa}"
-VERSION="6.6.0"
+SPOTIFY_IPA="${1:-Decrryted IPA/com.spotify.client-9.1.28-Decrypted.ipa}"
+VERSION="6.6.2"
 OUTPUT_DIR="Outputs/IPAS"
 
 # Determine package scheme (rootful=arm, rootless=arm64)
@@ -56,8 +56,8 @@ ivinject-arm64 \
   -r Watch
 
 echo ""
-echo "Step 2/4: Applying ipapatch..."
-ipapatch -input "$BASE_IPA" -output "$PATCHED_IPA"
+echo "Step 2/4: Copying base IPA to patched output..."
+cp "$BASE_IPA" "$PATCHED_IPA"
 
 echo ""
 echo "Step 3/4: Stripping Watch bundle (if any remains)..."

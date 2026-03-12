@@ -60,7 +60,12 @@ func activatePremiumPatchingGroup() {
     else if EeveeSpotify.hookTarget == .v91 {
         // 9.1.x versions: Use NonIOS14 hooks but skip offline content hooks
         NonIOS14PremiumPatchingGroup().activate()
-        V91PremiumPatchingGroup().activate()
+        // Only activate if Spotify's UIView category method exists in this build —
+        // the method was removed/renamed in 9.1.28 and hooking a missing method is a fatal crash.
+        let trackRowsSel = Selector(("initWithViewURI:onDemandSet:onDemandTrialService:trackRowsEnabled:productState:"))
+        if UIView.instancesRespond(to: trackRowsSel) {
+            V91PremiumPatchingGroup().activate()
+        }
     }
     else {
         NonIOS14PremiumPatchingGroup().activate()
@@ -75,7 +80,8 @@ func activatePremiumPatchingGroup() {
 }
 
 struct EeveeSpotify: Tweak {
-    static let version = "6.6.0"
+    static let version = "6.6.2"
+    static let buildNumber = "1"
     
     static var hookTarget: VersionHookTarget {
         let version = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
@@ -98,7 +104,41 @@ struct EeveeSpotify: Tweak {
     init() {
         // Activate session logout protection first (all versions)
         SessionLogoutHookGroup().activate()
-        writeDebugLog("EeveeSpotify \(EeveeSpotify.version) initialized — hook target: \(EeveeSpotify.hookTarget)")
+
+        let spotifyVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
+        let spotifyBuild = Bundle.main.infoDictionary!["CFBundleVersion"] as? String ?? "?"
+        let iosVersion = UIDevice.current.systemVersion
+        let deviceModel = UIDevice.current.model
+
+        writeDebugLog("=== EeveeSpotify \(EeveeSpotify.version) (build \(EeveeSpotify.buildNumber)) starting ===")
+        writeDebugLog("[INIT] Spotify: \(spotifyVersion) (build \(spotifyBuild))")
+        writeDebugLog("[INIT] iOS: \(iosVersion), Device: \(deviceModel)")
+        writeDebugLog("[INIT] Hook target: \(EeveeSpotify.hookTarget)")
+        writeDebugLog("[INIT] Patch type: \(UserDefaults.patchType)")
+        writeDebugLog("[INIT] Lyrics source: \(UserDefaults.lyricsSource)")
+        writeDebugLog("[INIT] tweakInitTime: \(tweakInitTime)")
+
+        // Verify critical hook targets exist
+        let hookTargets: [(String, String)] = [
+            ("SPTAuthSessionImplementation", "SPTAuthSession"),
+            ("_TtC24Connectivity_SessionImpl18SessionServiceImpl", "SessionServiceImpl"),
+            ("SPTAuthLegacyLoginControllerImplementation", "LegacyLoginController"),
+            ("_TtC24Connectivity_SessionImplP33_831B98CC28223E431E21CD27ADD20AF222OauthAccessTokenBridge", "OauthAccessTokenBridge"),
+            ("ARTWebSocketTransport", "AblyWebSocket"),
+            ("ARTSRWebSocket", "AblySRWebSocket"),
+        ]
+        var allFound = true
+        for (className, label) in hookTargets {
+            if NSClassFromString(className) != nil {
+                writeDebugLog("[INIT] \(label) class found")
+            } else {
+                writeDebugLog("[INIT] MISSING class for \(label): \(className)")
+                allFound = false
+            }
+        }
+        if allFound {
+            writeDebugLog("[INIT] All \(hookTargets.count) hook targets verified")
+        }
 
         // For 9.1.x, activate premium patching and lyrics
         if EeveeSpotify.hookTarget == .v91 {
